@@ -1,13 +1,9 @@
 import { GoogleGenAI, Type, Modality } from '@google/genai';
 import { ChecklistItem } from '../types.ts';
 
-// Acessa a chave mapeada no vite.config.ts
-const getApiKey = () => import.meta.env.VITE_GOOGLE_API_KEY;
-
 const getAI = () => {
-  const apiKey = getApiKey();
-  if (!apiKey) throw new Error("API Key do Google não encontrada. Verifique as variáveis de ambiente (API_KEY).");
-  return new GoogleGenAI({ apiKey });
+  // Use process.env.API_KEY directly as per @google/genai guidelines
+  return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
 export const generateChecklist = async (title: string, description: string): Promise<ChecklistItem[]> => {

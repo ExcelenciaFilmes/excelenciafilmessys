@@ -4,15 +4,9 @@ import { createClient } from '@supabase/supabase-js';
 const FALLBACK_URL = 'https://ihgqociggnimibzbasdj.supabase.co';
 const FALLBACK_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImloZ3FvY2lnZ25pbWliemJhc2RqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI5ODM2MDEsImV4cCI6MjA3ODU1OTYwMX0.m559KJavbd7AW81JDsNotCmCuLGfsS-kbHevi17svJI';
 
-// Acesso seguro às variáveis de ambiente
-// O cast (import.meta as any) evita erros de TS se a definição estiver incompleta
-const getEnv = (key: string) => {
-  try {
-    // @ts-ignore
-    return import.meta.env?.[key] || '';
-  } catch (e) {
-    return '';
-  }
+const getEnv = (key: keyof ImportMetaEnv) => {
+  // Agora o TypeScript sabe que import.meta.env existe graças ao vite-env.d.ts corrigido
+  return import.meta.env[key] || '';
 };
 
 const envUrl = getEnv('VITE_SUPABASE_URL');

@@ -8,9 +8,8 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     define: {
-      // Mapeia a API Key do Google (que pode vir como API_KEY) para o padrão VITE_
-      'import.meta.env.VITE_GOOGLE_API_KEY': JSON.stringify(process.env.API_KEY || env.API_KEY || ''),
-      // As variáveis VITE_SUPABASE_* são injetadas automaticamente pelo Vite se estiverem no process.env ou .env
+      // Define process.env.API_KEY for the @google/genai SDK
+      'process.env.API_KEY': JSON.stringify(process.env.API_KEY || env.API_KEY || ''),
     },
     build: {
       outDir: 'dist',

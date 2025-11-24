@@ -1,19 +1,23 @@
+
 import { createClient } from '@supabase/supabase-js';
 
-// Fallbacks hardcoded (Solicitados pelo usuário como segurança)
+// URL e Chave fornecidas pelo usuário
+// Usamos estes valores como fallback (plano B) caso as variáveis de ambiente da Vercel não carreguem.
 const FALLBACK_URL = 'https://ihgqociggnimibzbasdj.supabase.co';
 const FALLBACK_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImloZ3FvY2lnZ25pbWliemJhc2RqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI5ODM2MDEsImV4cCI6MjA3ODU1OTYwMX0.m559KJavbd7AW81JDsNotCmCuLGfsS-kbHevi17svJI';
 
-const getEnv = (key: keyof ImportMetaEnv) => {
-  // Agora o TypeScript sabe que import.meta.env existe graças ao vite-env.d.ts corrigido
-  return import.meta.env[key] || '';
-};
+// Tenta pegar do ambiente (Vercel), se não tiver, usa o fallback hardcoded
+const supabaseUrl = import.meta.env?.VITE_SUPABASE_URL || FALLBACK_URL;
+const supabaseAnonKey = import.meta.env?.VITE_SUPABASE_ANON_KEY || FALLBACK_KEY;
 
-const envUrl = getEnv('VITE_SUPABASE_URL');
-const envKey = getEnv('VITE_SUPABASE_ANON_KEY');
+// Verificação de segurança no console para ajudar no debug (aparecerá no F12 do navegador)
+console.log('Inicializando Supabase...', { 
+  url: supabaseUrl ? 'Definida' : 'Indefinida', 
+  keyDefined: !!supabaseAnonKey 
+});
 
-// Usa a variável de ambiente se existir, senão usa o fallback
-const supabaseUrl = envUrl && envUrl.length > 0 ? envUrl : FALLBACK_URL;
-const supabaseAnonKey = envKey && envKey.length > 0 ? envKey : FALLBACK_KEY;
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('ERRO CRÍTICO: Credenciais do Supabase ausentes.');
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);

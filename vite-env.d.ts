@@ -1,3 +1,4 @@
+
 interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL: string
   readonly VITE_SUPABASE_ANON_KEY: string
@@ -8,9 +9,9 @@ interface ImportMeta {
   readonly env: ImportMetaEnv
 }
 
-declare const process: {
-  env: {
+declare namespace NodeJS {
+  interface ProcessEnv {
     API_KEY: string;
     [key: string]: string | undefined;
   }
-};
+}

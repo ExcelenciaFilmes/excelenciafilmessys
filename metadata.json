@@ -1,0 +1,5 @@
+{
+  "name": "Excelencia Filmes - Gerenciador de Projetos",
+  "description": "Um sistema de gerenciamento de projetos no estilo Kanban para a Excelencia Filmes. Cadastre clientes, associe-os a projetos e use o poder da IA do Gemini para otimizar seu fluxo de trabalho.",
+  "requestFramePermissions": []
+}

@@ -179,23 +179,38 @@ const App: React.FC = () => {
     return () => subscription.unsubscribe();
   }, [fetchData]);
 
+  // Lógica de Visibilidade dos Projetos
   const displayProjects = useMemo(() => {
-    if (!filterMyTasks || !session?.user) {
-        return projects; 
+    if (!session?.user) return [];
+
+    const isMaster = currentUserProfile?.role === 'Master' || session.user.email === MASTER_EMAIL;
+
+    // Se for Master e NÃO ativou o filtro "Minhas", mostra tudo
+    if (isMaster && !filterMyTasks) {
+        return projects;
     }
+
+    // Se for Free, ele força o filtro. Se for Master e ativou "Minhas", também filtra.
     return projects.filter(p => 
         p.owner_id === session.user.id || 
         p.responsible_user_ids?.includes(session.user.id)
     );
-  }, [projects, filterMyTasks, session]);
+  }, [projects, filterMyTasks, session, currentUserProfile]);
 
-  // Filtro também para compromissos
+  // Lógica de Visibilidade dos Compromissos
   const displayAppointments = useMemo(() => {
-      if (!filterMyTasks || !session?.user) {
+      if (!session?.user) return [];
+
+      const isMaster = currentUserProfile?.role === 'Master' || session.user.email === MASTER_EMAIL;
+
+      // Master vê tudo se filtro estiver desligado
+      if (isMaster && !filterMyTasks) {
           return appointments;
       }
+
+      // Free vê apenas os seus
       return appointments.filter(a => a.user_id === session.user.id);
-  }, [appointments, filterMyTasks, session]);
+  }, [appointments, filterMyTasks, session, currentUserProfile]);
 
   const handleLogout = async () => {
     try {
@@ -412,7 +427,7 @@ const App: React.FC = () => {
                     name: user.name, 
                     cpf: user.cpf,
                     role: user.role || 'Free',
-                    approved: user.approved || false 
+                    approved: true // Auto aprova conforme solicitação recente
                 } 
             }
         });
@@ -429,13 +444,14 @@ const App: React.FC = () => {
                 name: user.name,
                 cpf: user.cpf,
                 role: user.role || 'Free',
-                approved: user.approved || false
+                approved: true
              });
              
              if (profileError) {
                  const errorMsg = formatSupabaseError(profileError);
                  alert(`Usuário criado, mas erro no perfil:\n${errorMsg}`);
              } else {
+                // Notificação sem senha (usuário entra direto agora)
                 if(window.confirm("✅ Usuário criado com sucesso!\n\nClique em OK para enviar os dados de acesso por e-mail.")) {
                     const subject = "Seu Acesso - Excelencia Filmes";
                     const body = `Olá ${user.name},\n\nSeu cadastro foi criado.\n\nLink: ${window.location.origin}\nLogin: ${user.email}\nSenha Provisória: ${password}\n\nAtenciosamente,\nAdministração.`;
@@ -458,10 +474,12 @@ const App: React.FC = () => {
       if(window.confirm(`Tem certeza que deseja EXCLUIR o usuário ${userToDelete?.name}? Essa ação não pode ser desfeita.`)) {
         const { error } = await supabase.from('profiles').delete().eq('id', userId);
         if(!error) {
-            setUsers(prev => prev.filter(u => u.id !== userId));
+            // Se não deu erro, recarrega para confirmar que o banco aceitou (RLS)
+            fetchData();
             alert("Usuário excluído com sucesso.");
         } else {
-            alert(`Erro ao excluir: ${error.message}`);
+            const errorMsg = formatSupabaseError(error);
+            alert(`Erro ao excluir: ${errorMsg}`);
         }
       }
   }
@@ -531,7 +549,7 @@ const App: React.FC = () => {
                     name,
                     phone: phone ? phone.replace(/\D/g, '') : null, // Limpa o telefone
                     role: 'Free',
-                    approved: false
+                    approved: true // Auto aprovado conforme solicitação recente
                 } 
             }
         });
@@ -577,7 +595,7 @@ const App: React.FC = () => {
                     Seu cadastro foi recebido, mas ainda está <strong>pendente de validação</strong> pela administração.
                 </p>
                 <p className="text-sm text-gray-400">
-                    Você receberá um e-mail de confirmação assim que seu acesso for liberado.
+                    Você será notificado assim que seu acesso for liberado.
                 </p>
                 <button 
                     onClick={handleLogout} 
@@ -604,20 +622,24 @@ const App: React.FC = () => {
              </div>
         </div>
         <div className="flex items-center space-x-4">
-            <div className="flex items-center bg-brand-background/50 rounded-md p-1 mr-2 border border-brand-secondary">
-                 <button 
-                    onClick={() => setFilterMyTasks(false)}
-                    className={`px-3 py-1.5 rounded text-xs font-semibold transition-all ${!filterMyTasks ? 'bg-brand-secondary text-brand-text-primary shadow-sm' : 'text-brand-text-secondary hover:text-brand-text-primary'}`}
-                 >
-                    Todos
-                 </button>
-                 <button 
-                    onClick={() => setFilterMyTasks(true)}
-                    className={`px-3 py-1.5 rounded text-xs font-semibold transition-all flex items-center gap-1 ${filterMyTasks ? 'bg-brand-primary text-brand-background shadow-sm' : 'text-brand-text-secondary hover:text-brand-text-primary'}`}
-                 >
-                    <FilterIcon className="w-3 h-3" /> Minhas
-                 </button>
-            </div>
+            
+            {/* Filtro apenas para Master - Free vê apenas as suas obrigatoriamente */}
+            {isMaster && (
+                <div className="flex items-center bg-brand-background/50 rounded-md p-1 mr-2 border border-brand-secondary">
+                    <button 
+                        onClick={() => setFilterMyTasks(false)}
+                        className={`px-3 py-1.5 rounded text-xs font-semibold transition-all ${!filterMyTasks ? 'bg-brand-secondary text-brand-text-primary shadow-sm' : 'text-brand-text-secondary hover:text-brand-text-primary'}`}
+                    >
+                        Todos
+                    </button>
+                    <button 
+                        onClick={() => setFilterMyTasks(true)}
+                        className={`px-3 py-1.5 rounded text-xs font-semibold transition-all flex items-center gap-1 ${filterMyTasks ? 'bg-brand-primary text-brand-background shadow-sm' : 'text-brand-text-secondary hover:text-brand-text-primary'}`}
+                    >
+                        <FilterIcon className="w-3 h-3" /> Minhas
+                    </button>
+                </div>
+            )}
 
             <button onClick={() => setViewMode('board')} title="Quadro" className={`p-2 rounded-md hover:bg-brand-secondary transition-colors ${viewMode === 'board' ? 'bg-brand-primary/20 text-brand-primary' : ''}`}><ViewColumnsIcon className="w-5 h-5"/></button>
             <button onClick={() => setViewMode('calendar')} title="Agenda" className={`p-2 rounded-md hover:bg-brand-secondary transition-colors ${viewMode === 'calendar' ? 'bg-brand-primary/20 text-brand-primary' : ''}`}><CalendarIcon className="w-5 h-5"/></button>
@@ -637,11 +659,11 @@ const App: React.FC = () => {
         </div>
       </header>
       <main className="flex-grow p-4 overflow-x-auto">
-        {filterMyTasks && (
+        {(filterMyTasks || !isMaster) && (
             <div className="mb-4 bg-brand-primary/10 border border-brand-primary/30 text-brand-primary px-4 py-2 rounded-md text-sm flex items-center gap-2">
                 <FilterIcon className="w-4 h-4" />
                 <span>Visualizando apenas projetos e compromissos vinculados a você.</span>
-                <button onClick={() => setFilterMyTasks(false)} className="ml-auto underline hover:text-white">Ver Todos</button>
+                {isMaster && <button onClick={() => setFilterMyTasks(false)} className="ml-auto underline hover:text-white">Ver Todos</button>}
             </div>
         )}
 

@@ -62,7 +62,8 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
     try {
       if (isRegisterMode) {
         await onRegister({ name, email, password });
-        setMessage('Cadastro realizado com sucesso! Verifique seu e-mail para confirmar a conta.');
+        // Mensagem profissional atualizada conforme solicitado
+        setMessage('Cadastro recebido com sucesso! Por medidas de segurança, seu acesso passará por uma validação administrativa. Você será notificado assim que sua conta for ativada pela equipe da Excelência Filmes.');
         setIsRegisterMode(false);
         setName('');
         setPassword('');
@@ -158,8 +159,17 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
             </div>
           </div>
           
-          {error && <p className="text-red-500 text-sm text-center font-medium">{error}</p>}
-          {message && <p className="text-green-400 text-sm text-center font-medium">{message}</p>}
+          {error && (
+            <div className="bg-red-500/10 border border-red-500/50 p-3 rounded-md">
+                <p className="text-red-500 text-sm text-center font-medium">{error}</p>
+            </div>
+          )}
+          
+          {message && (
+            <div className="bg-green-500/10 border border-green-500/50 p-4 rounded-md">
+                <p className="text-green-400 text-sm text-center font-medium leading-relaxed">{message}</p>
+            </div>
+          )}
 
           <div>
             <button
@@ -167,18 +177,18 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
               disabled={loading}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-brand-background bg-brand-primary hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Aguarde...' : (isRegisterMode ? 'Cadastrar' : 'Entrar')}
+              {loading ? 'Aguarde...' : (isRegisterMode ? 'Solicitar Acesso' : 'Entrar')}
             </button>
           </div>
         </form>
         <div className="text-center text-sm space-y-2">
           <button onClick={toggleMode} className="font-medium text-brand-primary hover:underline block w-full">
-            {isRegisterMode ? 'Já tem uma conta? Faça login' : 'Não tem uma conta? Cadastre-se'}
+            {isRegisterMode ? 'Já tem cadastro validado? Faça login' : 'Primeiro acesso? Solicite aqui'}
           </button>
           
           <div className="pt-4 flex justify-center gap-2 text-xs">
             <span className={connectionStatus === 'connected' ? "text-green-500" : "text-red-500"}>
-                ● {connectionStatus === 'connected' ? 'Servidor Online' : connectionStatus === 'checking' ? 'Verificando...' : 'Servidor Offline'}
+                ● {connectionStatus === 'connected' ? 'Sistema Online' : connectionStatus === 'checking' ? 'Verificando...' : 'Sistema Offline'}
             </span>
           </div>
         </div>

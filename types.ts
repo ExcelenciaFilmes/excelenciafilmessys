@@ -1,3 +1,4 @@
+
 export interface ChecklistItem {
   id: string;
   text: string;
@@ -45,5 +46,6 @@ export interface User {
   name: string | null;
   email: string | null;
   cpf: string | null;
-  role: string | null;
+  role: 'Master' | 'Free' | string | null;
+  approved?: boolean; // Novo campo para controle de aprovação
 }

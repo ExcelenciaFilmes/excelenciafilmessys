@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
 import { User } from '../types.ts';
-import { TrashIcon } from './icons';
+import { TrashIcon, CheckIcon } from './icons';
 
 interface UserModalProps {
   users: User[];
@@ -18,9 +19,13 @@ const UserForm: React.FC<{
     const [formData, setFormData] = useState<User | Partial<User>>(user);
     const [password, setPassword] = useState('');
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({...prev, [name]: value}));
+    }
+
+    const toggleApproval = () => {
+        setFormData(prev => ({...prev, approved: !prev.approved}));
     }
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -51,10 +56,38 @@ const UserForm: React.FC<{
                     <input id="cpf" name="cpf" type="text" value={formData.cpf || ''} onChange={handleChange} className="w-full p-2 bg-brand-secondary rounded-md" />
                 </div>
                  <div>
-                    <label htmlFor="role" className="block text-sm font-medium text-brand-text-secondary mb-1">Função (Cargo)</label>
-                    <input id="role" name="role" type="text" value={formData.role || ''} onChange={handleChange} placeholder="Ex: Editor, Diretor" className="w-full p-2 bg-brand-secondary rounded-md" />
+                    <label htmlFor="role" className="block text-sm font-medium text-brand-text-secondary mb-1">Nível de Acesso</label>
+                    <select 
+                        id="role" 
+                        name="role" 
+                        value={formData.role || 'Free'} 
+                        onChange={handleChange} 
+                        className="w-full p-2 bg-brand-secondary rounded-md text-brand-text-primary"
+                    >
+                        <option value="Free">Free (Acesso Padrão)</option>
+                        <option value="Master">Master (Acesso Total)</option>
+                    </select>
                 </div>
             </div>
+            
+            {/* Área de Aprovação de Acesso */}
+            <div className="mt-6 p-4 border border-brand-secondary rounded-lg bg-brand-background/50">
+                <h3 className="text-sm font-bold text-brand-text-primary mb-2">Validação de Cadastro</h3>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <p className="text-xs text-brand-text-secondary">Status atual: <span className={formData.approved ? "text-green-500 font-bold" : "text-yellow-500 font-bold"}>{formData.approved ? 'ATIVO' : 'PENDENTE'}</span></p>
+                        <p className="text-xs text-brand-text-secondary mt-1">Usuários pendentes não conseguem acessar o sistema.</p>
+                    </div>
+                    <button 
+                        type="button"
+                        onClick={toggleApproval}
+                        className={`px-4 py-2 rounded-md text-sm font-bold transition-colors ${formData.approved ? 'bg-red-500/20 text-red-500 hover:bg-red-500/30' : 'bg-green-500/20 text-green-500 hover:bg-green-500/30'}`}
+                    >
+                        {formData.approved ? 'Bloquear Acesso' : 'Aprovar Acesso'}
+                    </button>
+                </div>
+            </div>
+
           </div>
           <div className="p-6 border-t border-brand-secondary flex justify-end space-x-2">
             <button type="button" onClick={onCancel} className="px-4 py-2 rounded-md bg-brand-secondary hover:bg-brand-secondary/80 text-brand-text-primary">Cancelar</button>
@@ -91,7 +124,7 @@ export const UserModal: React.FC<UserModalProps> = ({ users, onClose, onSave, on
         setSelectedUser(null);
     }
 
-    const initialFormState = { name: '', email: '', cpf: '', role: '' };
+    const initialFormState: Partial<User> = { name: '', email: '', cpf: '', role: 'Free', approved: false };
 
     return (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
@@ -108,21 +141,39 @@ export const UserModal: React.FC<UserModalProps> = ({ users, onClose, onSave, on
             {view === 'list' ? (
                 <div>
                     <div className="p-4 max-h-[60vh] overflow-y-auto">
-                        <p className="text-xs text-brand-text-secondary px-2 pb-3">Novos usuários convidados receberão um e-mail para confirmar a conta e definir sua senha.</p>
+                        <p className="text-xs text-brand-text-secondary px-2 pb-3">
+                            <span className="font-bold text-brand-primary">MASTER:</span> Acesso total. <span className="font-bold text-gray-400">FREE:</span> Acesso restrito.
+                            <br/>Novos cadastros precisam ser aprovados manualmente.
+                        </p>
                         <ul className="space-y-2">
                             {users.map(user => (
-                                <li key={user.id} className="flex justify-between items-center p-3 bg-brand-secondary rounded-md">
+                                <li key={user.id} className={`flex justify-between items-center p-3 rounded-md border ${user.approved ? 'bg-brand-secondary border-transparent' : 'bg-yellow-900/10 border-yellow-600/30'}`}>
                                     <div className="flex items-center space-x-3">
-                                        <div className="w-8 h-8 bg-brand-surface rounded-full flex items-center justify-center font-bold text-sm">{(user.name || '?').charAt(0)}</div>
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${user.role === 'Master' ? 'bg-brand-primary text-brand-background' : 'bg-brand-surface text-brand-text-secondary'}`}>
+                                            {(user.name || '?').charAt(0)}
+                                        </div>
                                         <div>
-                                            <p className="font-semibold text-brand-text-primary">{user.name || user.email}</p>
-                                            <p className="text-sm text-brand-text-secondary">{user.role || 'Sem cargo'} - {user.email}</p>
+                                            <div className="flex items-center gap-2">
+                                                <p className="font-semibold text-brand-text-primary">{user.name || user.email}</p>
+                                                {user.role === 'Master' && <span className="text-[10px] bg-brand-primary/20 text-brand-primary px-1.5 py-0.5 rounded font-bold">MASTER</span>}
+                                                {!user.approved && <span className="text-[10px] bg-yellow-500/20 text-yellow-500 px-1.5 py-0.5 rounded font-bold animate-pulse">PENDENTE</span>}
+                                            </div>
+                                            <p className="text-sm text-brand-text-secondary">{user.email}</p>
                                         </div>
                                     </div>
                                     <div className="space-x-2 flex items-center">
-                                        <button onClick={() => handleEdit(user)} className="text-xs font-semibold text-brand-primary hover:underline">Editar</button>
-                                        <button onClick={() => onDelete(user.id)} className="p-1 text-red-400 hover:text-red-300">
+                                        <button onClick={() => handleEdit(user)} className="text-xs font-semibold text-brand-primary hover:underline px-2">
+                                            {user.approved ? 'Editar' : 'Validar'}
+                                        </button>
+                                        
+                                        {/* Botão de Exclusão destacado para o Master */}
+                                        <button 
+                                            onClick={() => onDelete(user.id)} 
+                                            className="group flex items-center gap-1 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white px-2 py-1.5 rounded transition-all"
+                                            title="Excluir Usuário permanentemente"
+                                        >
                                             <TrashIcon className="w-4 h-4" />
+                                            <span className="text-xs font-bold hidden group-hover:inline">Excluir</span>
                                         </button>
                                     </div>
                                 </li>

@@ -38,6 +38,10 @@ const formatSupabaseError = (error: unknown): string => {
     if (lowerCaseMessage.includes("failed to fetch")) {
         output += `\n\n--- ERRO DE CONEXÃO ---\nVerifique sua internet e a URL do Supabase.`;
     }
+    
+    if (lowerCaseMessage.includes("could not find the 'approved' column") || lowerCaseMessage.includes("could not find the 'role' column")) {
+        output += `\n\n--- ⚠️ COLUNA FALTANDO NO BANCO DE DADOS ---\nAcesse o SQL Editor do Supabase e rode:\n\nALTER TABLE profiles ADD COLUMN approved BOOLEAN DEFAULT false;\nALTER TABLE profiles ADD COLUMN role TEXT DEFAULT 'Free';`;
+    }
 
     return output;
   }
@@ -322,7 +326,8 @@ const App: React.FC = () => {
         }).eq('id', user.id);
         
         if (error) {
-            alert(`Erro: ${error.message}`);
+            const errorMsg = formatSupabaseError(error);
+            alert(`Erro ao atualizar perfil:\n\n${errorMsg}`);
         } else {
             // Se o usuário não estava aprovado e agora está, envia o email e exibe mensagem
             if (!wasApproved && isNowApproved && user.email) {
@@ -376,7 +381,9 @@ const App: React.FC = () => {
              });
              
              if (profileError) {
-                console.error("Erro ao criar perfil manual:", profileError);
+                 const errorMsg = formatSupabaseError(profileError);
+                 console.error("Erro ao criar perfil manual:", profileError);
+                 alert(`Usuário criado no Auth, mas houve erro ao salvar detalhes no perfil:\n${errorMsg}`);
              } else {
                 // Se criou já aprovado (Master criando usuário), mostra a mensagem também
                 if (user.approved) {

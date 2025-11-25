@@ -3,7 +3,8 @@ import { ChecklistItem } from '../types.ts';
 
 const getAI = () => {
   // Use process.env.API_KEY directly as per @google/genai guidelines
-  return new GoogleGenAI({ apiKey: process.env.API_KEY });
+  // Fallback to empty string to satisfy TS, though config ensures it exists
+  return new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 };
 
 export const generateChecklist = async (title: string, description: string): Promise<ChecklistItem[]> => {
@@ -28,8 +29,9 @@ export const generateChecklist = async (title: string, description: string): Pro
     });
 
     let jsonResponse;
+    const responseText = response.text || "{}"; // Ensure string
     try {
-      jsonResponse = JSON.parse(response.text?.trim() || "{}");
+      jsonResponse = JSON.parse(responseText.trim());
     } catch (e) {
       console.error("Failed to parse JSON from Gemini:", response.text);
       throw new Error("A IA retornou uma resposta em um formato inválido.");
@@ -100,8 +102,8 @@ export const generateImage = async (title: string): Promise<string> => {
     }
 
     for (const part of response.candidates[0].content.parts) {
-      if (part.inlineData) {
-        return part.inlineData.data;
+      if (part.inlineData && part.inlineData.data) {
+        return part.inlineData.data; // Ensure data is returned
       }
     }
 

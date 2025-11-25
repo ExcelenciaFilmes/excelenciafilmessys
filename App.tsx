@@ -308,6 +308,11 @@ const App: React.FC = () => {
     }
 
     if ('id' in user) {
+        // Verifica o estado anterior do usuário para detectar se foi aprovado agora
+        const previousUserState = users.find(u => u.id === user.id);
+        const wasApproved = previousUserState?.approved || false;
+        const isNowApproved = user.approved || false;
+
         // Atualização de usuário existente
         const { error } = await supabase.from('profiles').update({
             name: user.name,
@@ -315,7 +320,17 @@ const App: React.FC = () => {
             role: user.role,
             approved: user.approved
         }).eq('id', user.id);
-        if (error) alert(`Erro: ${error.message}`);
+        
+        if (error) {
+            alert(`Erro: ${error.message}`);
+        } else {
+            // Se o usuário não estava aprovado e agora está, exibe a mensagem especial
+            if (!wasApproved && isNowApproved) {
+                alert("✅ Usuário Validado com Sucesso!\n\nPor favor, confira seu e-mail. Uma mensagem de confirmação sobre a validação do acesso e as informações de cadastro foi gerada.");
+            } else {
+                alert("Usuário atualizado com sucesso.");
+            }
+        }
     } else {
         // Criação de novo usuário
         if (!user.email || !password) return;
@@ -350,7 +365,16 @@ const App: React.FC = () => {
                 approved: user.approved || false
              });
              
-             if (profileError) console.error("Erro ao criar perfil manual:", profileError);
+             if (profileError) {
+                console.error("Erro ao criar perfil manual:", profileError);
+             } else {
+                // Se criou já aprovado (Master criando usuário), mostra a mensagem também
+                if (user.approved) {
+                    alert("✅ Usuário Criado e Validado!\n\nPor favor, confira o e-mail. As informações de validação de acesso foram processadas.");
+                } else {
+                    alert("Usuário convidado com sucesso.");
+                }
+             }
         }
     }
     fetchData();

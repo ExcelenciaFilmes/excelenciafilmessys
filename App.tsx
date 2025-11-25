@@ -7,9 +7,10 @@ import { CardModal } from './components/CardModal.tsx';
 import { ProjectModal } from './components/ProjectModal.tsx';
 import { ClientModal } from './components/ClientModal.tsx';
 import { UserModal } from './components/UserModal.tsx';
+import { AppointmentModal } from './components/AppointmentModal.tsx';
 import Login from './components/Login.tsx';
 import { CalendarView } from './components/CalendarView.tsx';
-import { Project, Column, Client, User } from './types.ts';
+import { Project, Column, Client, User, Appointment } from './types.ts';
 import { LogoutIcon, UserIcon, UsersIcon, CalendarIcon, ViewColumnsIcon, ExcelenciaLogo, FilterIcon } from './components/icons.tsx';
 import type { Session } from '@supabase/supabase-js';
 
@@ -43,6 +44,10 @@ const formatSupabaseError = (error: unknown): string => {
         output += `\n\n--- ⚠️ COLUNA FALTANDO NO BANCO DE DADOS ---\nAcesse o SQL Editor do Supabase e rode:\n\nALTER TABLE profiles ADD COLUMN IF NOT EXISTS approved BOOLEAN DEFAULT false;\nALTER TABLE profiles ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'Free';`;
     }
 
+    if (lowerCaseMessage.includes('relation "appointments" does not exist') || lowerCaseMessage.includes('appointments')) {
+        output += `\n\n--- ⚠️ TABELA FALTANDO NO BANCO DE DADOS ---\nAcesse o SQL Editor do Supabase e rode:\n\ncreate table if not exists appointments (\n  id uuid default gen_random_uuid() primary key,\n  title text not null,\n  date timestamp with time zone not null,\n  description text,\n  user_id uuid references auth.users(id)\n);`;
+    }
+
     return output;
   }
 
@@ -58,12 +63,19 @@ const App: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [currentUserProfile, setCurrentUserProfile] = useState<User | null>(null);
 
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+  
+  // States para Compromissos
+  const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [selectedDateForAppointment, setSelectedDateForAppointment] = useState<Date | undefined>(undefined);
+
   const [viewMode, setViewMode] = useState<'board' | 'calendar'>('board');
   
   // Estado para filtro de tarefas
@@ -80,7 +92,6 @@ const App: React.FC = () => {
         columnsData = newColumnsData;
       }
 
-      // Busca TODOS os projetos (visibilidade global)
       const { data: projectsData, error: projectsError } = await supabase.from('projects').select('*');
       if (projectsError) throw projectsError;
       
@@ -89,6 +100,12 @@ const App: React.FC = () => {
 
       const { data: usersData, error: usersError } = await supabase.from('profiles').select('*');
       if (usersError) throw usersError;
+
+      // Busca compromissos (pode falhar se tabela não existir, tratamos no catch)
+      const { data: appointmentsData, error: appointmentsError } = await supabase.from('appointments').select('*');
+      if (appointmentsError && appointmentsError.code !== '42P01') { // 42P01 é tabela não existe, ignoramos aqui pra não travar tudo
+         throw appointmentsError;
+      }
 
       if (!columnsData || !projectsData || !clientsData || !usersData) {
         throw new Error("Dados incompletos retornados do banco.");
@@ -103,14 +120,12 @@ const App: React.FC = () => {
       setProjects(projectsData);
       setClients(clientsData);
       setUsers(usersData);
+      setAppointments(appointmentsData || []);
 
-      // Definir perfil do usuário atual
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-          // Atualiza o usuário atual baseado nos dados do banco (para pegar o 'approved' atualizado)
           let current = usersData.find(u => u.id === session.user.id);
           
-          // Hardcode de segurança para o Daniel
           if (session.user.email === MASTER_EMAIL) {
               const adminUser = { ...current, id: session.user.id, email: session.user.email, role: 'Master', approved: true };
               setCurrentUserProfile(adminUser as User);
@@ -122,7 +137,12 @@ const App: React.FC = () => {
     } catch (error: any) {
       console.error("Error fetching data:", error);
       const errorMessage = formatSupabaseError(error);
-      alert(`Erro ao buscar dados:\n\n${errorMessage}`);
+      // Se for erro de tabela appointments inexistente, mostramos alerta mas deixamos o resto carregar
+      if (errorMessage.includes("appointments")) {
+         alert(`Atenção: A funcionalidade de Agenda precisa de configuração.\n\n${errorMessage}`);
+      } else {
+         alert(`Erro ao buscar dados:\n\n${errorMessage}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -155,17 +175,33 @@ const App: React.FC = () => {
     return () => subscription.unsubscribe();
   }, [fetchData]);
 
-  // Lógica de Filtro: Projetos que serão exibidos no Board/Calendar
   const displayProjects = useMemo(() => {
     if (!filterMyTasks || !session?.user) {
-        return projects; // Retorna todos (Visibilidade Global)
+        return projects; 
     }
-    // Filtro Pessoal
     return projects.filter(p => 
         p.owner_id === session.user.id || 
         p.responsible_user_ids?.includes(session.user.id)
     );
   }, [projects, filterMyTasks, session]);
+
+  // Filtro também para compromissos
+  const displayAppointments = useMemo(() => {
+      if (!filterMyTasks || !session?.user) {
+          return appointments;
+      }
+      return appointments.filter(a => a.user_id === session.user.id);
+  }, [appointments, filterMyTasks, session]);
+
+  const handleLogout = async () => {
+    try {
+        await supabase.auth.signOut();
+        setSession(null);
+        setCurrentUserProfile(null);
+    } catch (error) {
+        console.error("Erro ao sair:", error);
+    }
+  };
 
   const handleDragEnd = async (result: DropResult) => {
     const { destination, source, draggableId, type } = result;
@@ -306,35 +342,29 @@ const App: React.FC = () => {
   }
 
   const handleSaveUser = async (user: Omit<User, 'id'> | User, password?: string) => {
-    // Se o email for do Daniel, força Master e Aprovado
     if (user.email === MASTER_EMAIL) {
         user.role = 'Master';
         user.approved = true;
     }
 
     if ('id' in user) {
-        // Verifica o estado anterior do usuário para detectar se foi aprovado agora
         const previousUserState = users.find(u => u.id === user.id);
         const wasApproved = previousUserState?.approved || false;
         const isNowApproved = user.approved === true;
 
-        // Atualização de usuário existente
-        // FORÇA o envio do boolean corretamente
         const { error } = await supabase.from('profiles').update({
             name: user.name,
             cpf: user.cpf,
             role: user.role,
-            approved: isNowApproved // Força boolean
+            approved: isNowApproved
         }).eq('id', user.id);
         
         if (error) {
             const errorMsg = formatSupabaseError(error);
             alert(`Erro ao atualizar perfil:\n\n${errorMsg}`);
         } else {
-            // Atualização OTIMISTA: Atualiza o estado local imediatamente para refletir na UI
             setUsers(prev => prev.map(u => u.id === user.id ? { ...u, ...user, approved: isNowApproved } : u));
 
-            // Se o usuário não estava aprovado e agora está, envia o email e exibe mensagem
             if (!wasApproved && isNowApproved && user.email) {
                 alert("✅ Usuário Aprovado!\n\nAgora, para que ele possa acessar, vamos enviar um e-mail de validação automática.");
                 
@@ -347,13 +377,9 @@ const App: React.FC = () => {
                 } else {
                     alert("📧 E-mail Enviado!\n\nO usuário receberá um link para definir senha e acessar o sistema.");
                 }
-            } else {
-                // Apenas atualizou dados, sem mudar status de aprovação crítico
-                // alert("Usuário atualizado com sucesso."); // Opcional, pode ser removido se ficar muito verboso
             }
         }
     } else {
-        // Criação de novo usuário (Convite pelo Master)
         if (!user.email || !password) return;
         
         const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -417,6 +443,56 @@ const App: React.FC = () => {
       }
   }
 
+  // --- Lógica de Compromissos (Appointments) ---
+
+  const handleOpenAppointmentModal = (date?: Date) => {
+      setSelectedDateForAppointment(date);
+      setSelectedAppointment(null);
+      setIsAppointmentModalOpen(true);
+  }
+
+  const handleEditAppointment = (appointment: Appointment) => {
+      setSelectedAppointment(appointment);
+      setIsAppointmentModalOpen(true);
+  }
+
+  const handleSaveAppointment = async (appointment: Omit<Appointment, 'id' | 'user_id'> | Appointment) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      let error, data;
+      
+      if ('id' in appointment) {
+          // Update
+          ({ data, error } = await supabase.from('appointments').update(appointment).eq('id', appointment.id).select().single());
+      } else {
+          // Insert
+          const newAppt = { ...appointment, user_id: user.id };
+          ({ data, error } = await supabase.from('appointments').insert([newAppt]).select().single());
+      }
+
+      if (error) {
+          const errMsg = formatSupabaseError(error);
+          alert(`Erro ao salvar compromisso: ${errMsg}`);
+      } else {
+          const savedAppointment = data as Appointment;
+          if ('id' in appointment) {
+              setAppointments(prev => prev.map(a => a.id === savedAppointment.id ? savedAppointment : a));
+          } else {
+              setAppointments(prev => [...prev, savedAppointment]);
+          }
+      }
+  }
+
+  const handleDeleteAppointment = async (id: string) => {
+      const { error } = await supabase.from('appointments').delete().eq('id', id);
+      if (error) {
+          alert(`Erro ao excluir: ${error.message}`);
+      } else {
+          setAppointments(prev => prev.filter(a => a.id !== id));
+      }
+  }
+
   const handleLogin = async ({ email, password }: any) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
@@ -430,14 +506,14 @@ const App: React.FC = () => {
             options: { 
                 data: { 
                     name,
-                    role: 'Free', // Padrão Free
-                    approved: false // Padrão Bloqueado
+                    role: 'Free',
+                    approved: false
                 } 
             }
         });
         if (error) throw error;
     } catch (error) {
-        throw error; // Repassa o erro para o componente de Login tratar
+        throw error;
     }
   };
 
@@ -454,7 +530,6 @@ const App: React.FC = () => {
     return <Login onLogin={handleLogin} onRegister={handleRegister} />;
   }
 
-  // Lógica de Bloqueio para usuários não aprovados
   const isMaster = currentUserProfile?.role === 'Master' || session.user.email === MASTER_EMAIL;
   const isApproved = currentUserProfile?.approved === true || session.user.email === MASTER_EMAIL;
 
@@ -474,7 +549,7 @@ const App: React.FC = () => {
                     Você receberá um e-mail de confirmação assim que seu acesso for liberado.
                 </p>
                 <button 
-                    onClick={() => supabase.auth.signOut()} 
+                    onClick={handleLogout} 
                     className="mt-8 px-6 py-2 bg-brand-secondary hover:bg-brand-secondary/80 text-white rounded transition-colors"
                 >
                     Sair e tentar novamente mais tarde
@@ -498,7 +573,6 @@ const App: React.FC = () => {
              </div>
         </div>
         <div className="flex items-center space-x-4">
-            {/* Toggle de Filtro: Todos vs Meus */}
             <div className="flex items-center bg-brand-background/50 rounded-md p-1 mr-2 border border-brand-secondary">
                  <button 
                     onClick={() => setFilterMyTasks(false)}
@@ -520,25 +594,22 @@ const App: React.FC = () => {
             
             <button onClick={() => setIsProjectModalOpen(true)} className="px-4 py-2 text-sm rounded-md bg-brand-primary text-brand-background font-bold hover:brightness-110 transition-all shadow-lg shadow-brand-primary/20">Novo Projeto</button>
             
-            {/* Somente Master pode gerenciar usuários */}
             {isMaster && (
                 <button onClick={() => setIsUserModalOpen(true)} title="Gerenciar Usuários (Admin)" className="p-2 rounded-md hover:bg-brand-secondary transition-colors text-brand-primary relative">
                     <UsersIcon className="w-5 h-5"/>
-                    {/* Indicador se houver usuários pendentes */}
                     {users.some(u => !u.approved) && <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>}
                 </button>
             )}
             
             <button onClick={() => setIsClientModalOpen(true)} title="Gerenciar Clientes" className="p-2 rounded-md hover:bg-brand-secondary transition-colors"><UserIcon className="w-5 h-5"/></button>
-            <button onClick={() => supabase.auth.signOut()} title="Sair" className="p-2 rounded-md hover:bg-brand-secondary transition-colors text-red-400 hover:text-red-300"><LogoutIcon className="w-5 h-5"/></button>
+            <button onClick={handleLogout} title="Sair" className="p-2 rounded-md hover:bg-brand-secondary transition-colors text-red-400 hover:text-red-300"><LogoutIcon className="w-5 h-5"/></button>
         </div>
       </header>
       <main className="flex-grow p-4 overflow-x-auto">
-        {/* Banner informativo se o filtro estiver ativo */}
         {filterMyTasks && (
             <div className="mb-4 bg-brand-primary/10 border border-brand-primary/30 text-brand-primary px-4 py-2 rounded-md text-sm flex items-center gap-2">
                 <FilterIcon className="w-4 h-4" />
-                <span>Visualizando apenas projetos onde você é <strong>Dono</strong> ou <strong>Responsável</strong>.</span>
+                <span>Visualizando apenas projetos e compromissos vinculados a você.</span>
                 <button onClick={() => setFilterMyTasks(false)} className="ml-auto underline hover:text-white">Ver Todos</button>
             </div>
         )}
@@ -561,8 +632,11 @@ const App: React.FC = () => {
         ) : (
             <CalendarView 
                 projects={displayProjects} 
+                appointments={displayAppointments}
                 clients={clients} 
                 onProjectClick={setSelectedProject}
+                onAddAppointment={handleOpenAppointmentModal}
+                onEditAppointment={handleEditAppointment}
             />
         )}
       </main>
@@ -582,8 +656,19 @@ const App: React.FC = () => {
       {selectedProject && <CardModal project={selectedProject} clients={clients} users={users} onClose={() => setSelectedProject(null)} onUpdateProject={handleUpdateProject} />}
       {isProjectModalOpen && <ProjectModal isOpen={isProjectModalOpen} onClose={() => setIsProjectModalOpen(false)} onSave={handleSaveProject} clients={clients} users={users} columns={columns} />}
       {isClientModalOpen && <ClientModal clients={clients} onClose={() => setIsClientModalOpen(false)} onSave={handleSaveClient} onDelete={handleDeleteClient}/>}
-      {/* Modal de Usuário só abre se for Master, mas a proteção de renderização já está no botão */}
       {isUserModalOpen && <UserModal users={users} onClose={() => setIsUserModalOpen(false)} onSave={handleSaveUser} onDelete={handleDeleteUser}/>}
+      
+      {/* Modal de Compromissos */}
+      {isAppointmentModalOpen && (
+          <AppointmentModal 
+            isOpen={isAppointmentModalOpen}
+            onClose={() => setIsAppointmentModalOpen(false)}
+            onSave={handleSaveAppointment}
+            onDelete={handleDeleteAppointment}
+            initialDate={selectedDateForAppointment}
+            appointmentToEdit={selectedAppointment}
+          />
+      )}
     </div>
   );
 }

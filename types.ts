@@ -21,6 +21,14 @@ export interface Project {
   owner_id: string;
 }
 
+export interface Appointment {
+  id: string;
+  title: string;
+  date: string; // ISO String com data e hora
+  description?: string;
+  user_id: string;
+}
+
 export interface Column {
   id: string;
   title: string;

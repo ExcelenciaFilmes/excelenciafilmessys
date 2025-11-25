@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { User } from '../types.ts';
-import { TrashIcon, CheckIcon } from './icons';
+import { TrashIcon, CheckIcon, WhatsAppIcon } from './icons';
 
 interface UserModalProps {
   users: User[];
@@ -33,6 +33,19 @@ const UserForm: React.FC<{
         e.preventDefault();
         onSave(formData as User | Omit<User, 'id'>, mode === 'new' ? password : undefined);
     }
+    
+    const handleSendWhatsApp = () => {
+        if (!formData.phone || !formData.name) return;
+        
+        // Remove caracteres não numéricos
+        const cleanPhone = formData.phone.replace(/\D/g, '');
+        // Adiciona 55 se não tiver
+        const fullPhone = cleanPhone.length <= 11 ? `55${cleanPhone}` : cleanPhone;
+        
+        const message = `Olá ${formData.name}, seu cadastro no sistema Excelencia Filmes foi APROVADO! ✅\n\nAcesse agora: ${window.location.origin}`;
+        
+        window.open(`https://wa.me/${fullPhone}?text=${encodeURIComponent(message)}`, '_blank');
+    }
 
     return (
         <form onSubmit={handleSubmit} className="bg-brand-surface rounded-b-lg">
@@ -53,8 +66,8 @@ const UserForm: React.FC<{
                     </div>
                  )}
                  <div>
-                    <label htmlFor="cpf" className="block text-sm font-medium text-brand-text-secondary mb-1">CPF</label>
-                    <input id="cpf" name="cpf" type="text" value={formData.cpf || ''} onChange={handleChange} className="w-full p-2 bg-brand-secondary rounded-md text-brand-text-primary" />
+                    <label htmlFor="phone" className="block text-sm font-medium text-brand-text-secondary mb-1">WhatsApp / Celular</label>
+                    <input id="phone" name="phone" type="tel" value={formData.phone || ''} onChange={handleChange} placeholder="DDD + Número" className="w-full p-2 bg-brand-secondary rounded-md text-brand-text-primary" />
                 </div>
                  <div>
                     <label htmlFor="role" className="block text-sm font-medium text-brand-text-secondary mb-1">Nível de Acesso</label>
@@ -74,7 +87,7 @@ const UserForm: React.FC<{
             {/* Área de Aprovação de Acesso */}
             <div className={`mt-6 p-4 border rounded-lg transition-colors ${formData.approved ? 'border-green-500/50 bg-green-500/10' : 'border-yellow-500/50 bg-yellow-500/10'}`}>
                 <h3 className="text-sm font-bold text-brand-text-primary mb-2">Validação de Cadastro</h3>
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                         <p className="text-xs text-brand-text-secondary">Status atual: <span className={formData.approved ? "text-green-400 font-bold uppercase" : "text-yellow-400 font-bold uppercase"}>{formData.approved ? 'ATIVO / APROVADO' : 'PENDENTE DE APROVAÇÃO'}</span></p>
                         <p className="text-xs text-brand-text-secondary mt-1 max-w-xs leading-relaxed">
@@ -83,13 +96,26 @@ const UserForm: React.FC<{
                              : 'Usuário bloqueado. Clique em aprovar para liberar.'}
                         </p>
                     </div>
-                    <button 
-                        type="button"
-                        onClick={toggleApproval}
-                        className={`px-4 py-2 rounded-md text-sm font-bold transition-all shadow-md ${formData.approved ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/50' : 'bg-green-500/20 text-green-400 hover:bg-green-500/30 border border-green-500/50'}`}
-                    >
-                        {formData.approved ? 'Bloquear Acesso' : 'Aprovar Acesso'}
-                    </button>
+                    <div className="flex items-center gap-2">
+                        {formData.phone && (
+                            <button
+                                type="button"
+                                onClick={handleSendWhatsApp}
+                                title="Enviar confirmação via WhatsApp"
+                                className="px-3 py-2 rounded-md bg-green-600 hover:bg-green-700 text-white transition-colors flex items-center gap-2"
+                            >
+                                <WhatsAppIcon className="w-5 h-5" />
+                                <span className="text-xs font-bold hidden md:inline">Notificar</span>
+                            </button>
+                        )}
+                        <button 
+                            type="button"
+                            onClick={toggleApproval}
+                            className={`px-4 py-2 rounded-md text-sm font-bold transition-all shadow-md ${formData.approved ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/50' : 'bg-green-500/20 text-green-400 hover:bg-green-500/30 border border-green-500/50'}`}
+                        >
+                            {formData.approved ? 'Bloquear Acesso' : 'Aprovar Acesso'}
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -129,7 +155,7 @@ export const UserModal: React.FC<UserModalProps> = ({ users, onClose, onSave, on
         setSelectedUser(null);
     }
 
-    const initialFormState: Partial<User> = { name: '', email: '', cpf: '', role: 'Free', approved: false };
+    const initialFormState: Partial<User> = { name: '', email: '', cpf: '', phone: '', role: 'Free', approved: false };
 
     return (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
@@ -174,6 +200,7 @@ export const UserModal: React.FC<UserModalProps> = ({ users, onClose, onSave, on
                                                 {!user.approved && <span className="text-[10px] text-yellow-500 font-bold border border-yellow-500/30 px-1 rounded uppercase">Aguardando Aprovação</span>}
                                                 {user.approved && <span className="text-[10px] text-green-500 font-bold flex items-center gap-1"><CheckIcon className="w-3 h-3"/> Ativo</span>}
                                             </div>
+                                            {user.phone && <p className="text-xs text-brand-text-secondary mt-1 flex items-center gap-1"><WhatsAppIcon className="w-3 h-3 text-green-500"/> {user.phone}</p>}
                                         </div>
                                     </div>
                                     <div className="flex items-center space-x-3">

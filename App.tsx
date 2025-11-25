@@ -386,19 +386,14 @@ const App: React.FC = () => {
             // Atualiza o estado local IMEDIATAMENTE com os dados que retornaram DO BANCO
             setUsers(prev => prev.map(u => u.id === user.id ? { ...u, ...confirmedUser } : u));
 
-            // Logica de email de aprovação
+            // Logica de notificação
             if (!wasApproved && confirmedUser.approved && user.email) {
-                alert("✅ Usuário Aprovado e Salvo!\n\nAgora, enviaremos o e-mail de validação automática.");
+                alert("✅ Usuário Aprovado e Salvo!\n\nDeseja avisá-lo por e-mail?");
                 
-                const { error: mailError } = await supabase.auth.resetPasswordForEmail(user.email, {
-                    redirectTo: window.location.origin,
-                });
-
-                if (mailError) {
-                    alert(`⚠️ Perfil salvo, mas houve erro ao enviar e-mail: ${mailError.message}`);
-                } else {
-                    alert("📧 E-mail com link de acesso enviado para o usuário!");
-                }
+                // Abre o cliente de email do sistema
+                const subject = "Acesso Aprovado - Excelencia Filmes";
+                const body = `Olá ${confirmedUser.name},\n\nSeu acesso ao sistema Excelencia Filmes foi aprovado!\n\nAcesse: ${window.location.origin}\n\nAtenciosamente,\nAdministração.`;
+                window.location.href = `mailto:${confirmedUser.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
             }
         }
     } else {
@@ -518,7 +513,7 @@ const App: React.FC = () => {
     if (error) throw error;
   };
 
-  const handleRegister = async ({ name, email, password }: any) => {
+  const handleRegister = async ({ name, email, phone, password }: any) => {
     try {
         const { error } = await supabase.auth.signUp({
             email,
@@ -526,11 +521,18 @@ const App: React.FC = () => {
             options: { 
                 data: { 
                     name,
+                    phone, // Salva o telefone no metadata
                     role: 'Free',
                     approved: false
                 } 
             }
         });
+        
+        // Tentamos salvar o telefone na tabela profiles também se o trigger não pegar
+        if (!error) {
+             // Opcional: atualização redundante se o trigger do Supabase falhar em pegar o metadado
+        }
+
         if (error) throw error;
     } catch (error) {
         throw error;

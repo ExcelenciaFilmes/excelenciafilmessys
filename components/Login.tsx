@@ -12,6 +12,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   
@@ -61,11 +62,12 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
 
     try {
       if (isRegisterMode) {
-        await onRegister({ name, email, password });
+        await onRegister({ name, email, phone, password });
         // Mensagem profissional atualizada conforme solicitado
         setMessage('Cadastro recebido com sucesso! Por medidas de segurança, seu acesso passará por uma validação administrativa. Você será notificado assim que sua conta for ativada pela equipe da Excelência Filmes.');
         setIsRegisterMode(false);
         setName('');
+        setPhone('');
         setPassword('');
       } else {
         await onLogin({ email, password });
@@ -127,14 +129,24 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="rounded-md shadow-sm space-y-4">
             {isRegisterMode && (
-              <div>
-                <label htmlFor="name" className="sr-only">Nome</label>
-                <input
-                  id="name" name="name" type="text" autoComplete="name" required
-                  className={`${inputBaseClasses} ${inputErrorClasses}`}
-                  placeholder="Nome Completo" value={name} onChange={handleInputChange(setName)}
-                />
-              </div>
+              <>
+                <div>
+                    <label htmlFor="name" className="sr-only">Nome</label>
+                    <input
+                    id="name" name="name" type="text" autoComplete="name" required
+                    className={`${inputBaseClasses} ${inputErrorClasses}`}
+                    placeholder="Nome Completo" value={name} onChange={handleInputChange(setName)}
+                    />
+                </div>
+                <div>
+                    <label htmlFor="phone" className="sr-only">WhatsApp / Telefone</label>
+                    <input
+                    id="phone" name="phone" type="tel" autoComplete="tel" required
+                    className={`${inputBaseClasses} ${inputErrorClasses}`}
+                    placeholder="WhatsApp (DDD + Número)" value={phone} onChange={handleInputChange(setPhone)}
+                    />
+                </div>
+              </>
             )}
             <div>
               <label htmlFor="email-address" className="sr-only">Email</label>

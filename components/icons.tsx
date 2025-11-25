@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 export const PencilIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
@@ -65,4 +66,23 @@ export const PlusIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
     </svg>
+);
+
+// Logo personalizado: Círculo preto com Triângulo Amarelo e Chevron Azul
+export const ExcelenciaLogo: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
+    <circle cx="50" cy="50" r="50" fill="black" />
+    
+    {/* Triângulo Amarelo (Play) */}
+    <path 
+      d="M30 30 C30 26 33 24 36 26 L60 45 C63 47 63 53 60 55 L36 74 C33 76 30 74 30 70 V30 Z" 
+      fill="#FDE047" 
+    />
+    
+    {/* Chevron/Seta Azul */}
+    <path 
+      d="M55 30 C55 26 58 24 61 26 L85 45 C88 47 88 53 85 55 L61 74 C58 76 55 74 55 70 V62 L65 50 L55 38 V30 Z" 
+      fill="#439CA8" 
+    />
+  </svg>
 );

@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
-import { EyeIcon, EyeOffIcon } from './icons';
+
+import React, { useState, useEffect } from 'react';
+import { EyeIcon, EyeOffIcon, ExcelenciaLogo } from './icons';
+import { supabase } from '../supabaseClient';
 
 interface LoginProps {
   onLogin: (credentials: any) => Promise<void>;
@@ -17,6 +19,27 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [hasAuthError, setHasAuthError] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'error'>('checking');
+
+  useEffect(() => {
+    checkConnection();
+  }, []);
+
+  const checkConnection = async () => {
+    try {
+        const { error } = await supabase.from('projects').select('count', { count: 'exact', head: true });
+        // Se o erro for de autenticação (PGRST301), ainda assim significa que conectou no banco
+        if (!error || error.code === 'PGRST301') {
+            setConnectionStatus('connected');
+        } else {
+            console.error("Erro conexão:", error);
+            setConnectionStatus('error');
+        }
+    } catch (e) {
+        console.error("Erro conexão catch:", e);
+        setConnectionStatus('error');
+    }
+  };
 
   const resetFeedback = () => {
     setError(null);
@@ -86,12 +109,17 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
 
   return (
     <div className="min-h-screen bg-brand-background flex items-center justify-center p-4">
-      <div className="w-full max-w-md p-8 space-y-8 bg-brand-surface rounded-lg shadow-lg">
-        <div>
+      <div className="w-full max-w-md p-8 space-y-8 bg-brand-surface rounded-lg shadow-lg relative overflow-hidden">
+        {/* Connection Status Indicator */}
+        <div className={`absolute top-0 left-0 w-full h-1 ${connectionStatus === 'connected' ? 'bg-green-500' : connectionStatus === 'checking' ? 'bg-yellow-500' : 'bg-red-500'}`} />
+
+        <div className="flex flex-col items-center">
+          <ExcelenciaLogo className="h-28 w-28 mb-6" />
           <h2 className="text-center text-3xl font-extrabold text-brand-text-primary">
             {isRegisterMode ? 'Crie sua conta' : 'Acesse sua conta'}
           </h2>
         </div>
+
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="rounded-md shadow-sm space-y-4">
             {isRegisterMode && (
@@ -143,10 +171,16 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
             </button>
           </div>
         </form>
-        <div className="text-center text-sm">
-          <button onClick={toggleMode} className="font-medium text-brand-primary hover:underline">
+        <div className="text-center text-sm space-y-2">
+          <button onClick={toggleMode} className="font-medium text-brand-primary hover:underline block w-full">
             {isRegisterMode ? 'Já tem uma conta? Faça login' : 'Não tem uma conta? Cadastre-se'}
           </button>
+          
+          <div className="pt-4 flex justify-center gap-2 text-xs">
+            <span className={connectionStatus === 'connected' ? "text-green-500" : "text-red-500"}>
+                ● {connectionStatus === 'connected' ? 'Servidor Online' : connectionStatus === 'checking' ? 'Verificando...' : 'Servidor Offline'}
+            </span>
+          </div>
         </div>
       </div>
     </div>

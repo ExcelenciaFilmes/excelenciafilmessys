@@ -350,32 +350,44 @@ const App: React.FC = () => {
     if ('id' in user) {
         const previousUserState = users.find(u => u.id === user.id);
         const wasApproved = previousUserState?.approved || false;
-        const isNowApproved = user.approved === true;
+        
+        // Garante que é booleano estrito
+        const isNowApproved = Boolean(user.approved);
 
-        const { error } = await supabase.from('profiles').update({
+        // Usamos .select().single() para ter certeza que o banco persistiu a alteração
+        const { data: updatedUserData, error } = await supabase.from('profiles').update({
             name: user.name,
             cpf: user.cpf,
             role: user.role,
             approved: isNowApproved
-        }).eq('id', user.id);
+        })
+        .eq('id', user.id)
+        .select()
+        .single();
         
         if (error) {
             const errorMsg = formatSupabaseError(error);
             alert(`Erro ao atualizar perfil:\n\n${errorMsg}`);
+            
+            // Se falhar, reverte localmente buscando dados novos
+            fetchData();
         } else {
-            setUsers(prev => prev.map(u => u.id === user.id ? { ...u, ...user, approved: isNowApproved } : u));
+            // Atualiza o estado local com os dados que retornaram DO BANCO
+            const confirmedUser = updatedUserData as User;
+            setUsers(prev => prev.map(u => u.id === user.id ? { ...u, ...confirmedUser } : u));
 
-            if (!wasApproved && isNowApproved && user.email) {
-                alert("✅ Usuário Aprovado!\n\nAgora, para que ele possa acessar, vamos enviar um e-mail de validação automática.");
+            // Logica de email de aprovação
+            if (!wasApproved && confirmedUser.approved && user.email) {
+                alert("✅ Usuário Aprovado e Salvo!\n\nAgora, enviaremos o e-mail de validação automática.");
                 
                 const { error: mailError } = await supabase.auth.resetPasswordForEmail(user.email, {
                     redirectTo: window.location.origin,
                 });
 
                 if (mailError) {
-                    alert(`⚠️ Houve um erro ao enviar o e-mail automático: ${mailError.message}\n\nAvise o usuário manualmente.`);
+                    alert(`⚠️ Perfil salvo, mas houve erro ao enviar e-mail: ${mailError.message}`);
                 } else {
-                    alert("📧 E-mail Enviado!\n\nO usuário receberá um link para definir senha e acessar o sistema.");
+                    alert("📧 E-mail Enviado com sucesso!");
                 }
             }
         }
@@ -422,7 +434,8 @@ const App: React.FC = () => {
              }
         }
     }
-    fetchData();
+    // Removemos o fetchData() do final para evitar sobrescrever a atualização otimista/confirmada
+    // fetchData(); 
   }
 
   const handleDeleteUser = async (userId: string) => {

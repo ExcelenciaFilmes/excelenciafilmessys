@@ -41,7 +41,7 @@ const formatSupabaseError = (error: unknown): string => {
     }
     
     if (lowerCaseMessage.includes("could not find the 'approved' column") || lowerCaseMessage.includes("could not find the 'role' column")) {
-        output += `\n\n--- ⚠️ COLUNA FALTANDO NO BANCO DE DADOS ---\nAcesse o SQL Editor do Supabase e rode:\n\nALTER TABLE profiles ADD COLUMN IF NOT EXISTS approved BOOLEAN DEFAULT false;\nALTER TABLE profiles ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'Free';`;
+        output += `\n\n--- ⚠️ COLUNA FALTANDO NO BANCO DE DADOS ---\nAcesse o SQL Editor do Supabase e rode:\n\nALTER TABLE profiles ADD COLUMN IF NOT EXISTS approved BOOLEAN DEFAULT false;\nALTER TABLE profiles ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'Free';\nNOTIFY pgrst, 'reload schema';`;
     }
 
     if (lowerCaseMessage.includes('relation "appointments" does not exist') || lowerCaseMessage.includes('appointments')) {
@@ -348,11 +348,14 @@ const App: React.FC = () => {
     }
 
     if ('id' in user) {
+        // --- ATUALIZAÇÃO DE USUÁRIO EXISTENTE ---
         const previousUserState = users.find(u => u.id === user.id);
         const wasApproved = previousUserState?.approved || false;
         
         // Garante que é booleano estrito
-        const isNowApproved = Boolean(user.approved);
+        const isNowApproved = user.approved === true;
+
+        console.log(`Tentando atualizar usuário ${user.id}. Status: ${isNowApproved}`);
 
         // Usamos .select().single() para ter certeza que o banco persistiu a alteração
         const { data: updatedUserData, error } = await supabase.from('profiles').update({
@@ -366,14 +369,21 @@ const App: React.FC = () => {
         .single();
         
         if (error) {
+            console.error("Erro Supabase update:", error);
             const errorMsg = formatSupabaseError(error);
-            alert(`Erro ao atualizar perfil:\n\n${errorMsg}`);
+            alert(`Erro ao atualizar perfil no banco de dados:\n\n${errorMsg}`);
             
-            // Se falhar, reverte localmente buscando dados novos
+            // Reverte para o estado anterior buscando do banco
             fetchData();
+        } else if (!updatedUserData) {
+             // Caso não retorne erro mas também não retorne dados (comum quando RLS bloqueia)
+             alert("Atenção: A atualização não foi salva. \n\nMotivo provável: Seu usuário não tem permissão de banco de dados (RLS) para editar outros usuários.\n\nContate o desenvolvedor para aplicar a política de segurança no Supabase.");
+             fetchData();
         } else {
-            // Atualiza o estado local com os dados que retornaram DO BANCO
+            // SUCESSO!
             const confirmedUser = updatedUserData as User;
+            
+            // Atualiza o estado local IMEDIATAMENTE com os dados que retornaram DO BANCO
             setUsers(prev => prev.map(u => u.id === user.id ? { ...u, ...confirmedUser } : u));
 
             // Logica de email de aprovação
@@ -387,11 +397,12 @@ const App: React.FC = () => {
                 if (mailError) {
                     alert(`⚠️ Perfil salvo, mas houve erro ao enviar e-mail: ${mailError.message}`);
                 } else {
-                    alert("📧 E-mail Enviado com sucesso!");
+                    alert("📧 E-mail com link de acesso enviado para o usuário!");
                 }
             }
         }
     } else {
+        // --- CRIAÇÃO DE NOVO USUÁRIO ---
         if (!user.email || !password) return;
         
         const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -426,16 +437,12 @@ const App: React.FC = () => {
                  const errorMsg = formatSupabaseError(profileError);
                  alert(`Usuário criado, mas erro no perfil:\n${errorMsg}`);
              } else {
-                if (user.approved) {
-                    alert("✅ Usuário Criado e Validado!");
-                } else {
-                    alert("Usuário convidado com sucesso.");
-                }
+                alert("✅ Usuário criado com sucesso!");
+                // Recarrega tudo para garantir que o novo usuário apareça na lista com ID correto
+                fetchData();
              }
         }
     }
-    // Removemos o fetchData() do final para evitar sobrescrever a atualização otimista/confirmada
-    // fetchData(); 
   }
 
   const handleDeleteUser = async (userId: string) => {
@@ -544,6 +551,7 @@ const App: React.FC = () => {
   }
 
   const isMaster = currentUserProfile?.role === 'Master' || session.user.email === MASTER_EMAIL;
+  // Aprovado se estiver true no banco OU se for o email mestre hardcoded
   const isApproved = currentUserProfile?.approved === true || session.user.email === MASTER_EMAIL;
 
   if (!isApproved) {

@@ -44,6 +44,10 @@ const formatSupabaseError = (error: unknown): string => {
         output += `\n\n--- ⚠️ COLUNA FALTANDO NO BANCO DE DADOS ---\nAcesse o SQL Editor do Supabase e rode:\n\nALTER TABLE profiles ADD COLUMN IF NOT EXISTS approved BOOLEAN DEFAULT false;\nALTER TABLE profiles ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'Free';\nNOTIFY pgrst, 'reload schema';`;
     }
 
+    if (lowerCaseMessage.includes("violates row-level security policy") || lowerCaseMessage.includes("permission denied")) {
+        output += `\n\n--- ⚠️ ERRO DE PERMISSÃO (RLS) ---\nO banco de dados bloqueou a edição. Rode este comando no SQL Editor do Supabase para corrigir:\n\nDROP POLICY IF EXISTS "Enable all for authenticated" ON "public"."profiles";\nCREATE POLICY "Enable all for authenticated" ON "public"."profiles" AS PERMISSIVE FOR ALL TO authenticated USING (true) WITH CHECK (true);`;
+    }
+
     if (lowerCaseMessage.includes('relation "appointments" does not exist') || lowerCaseMessage.includes('appointments')) {
         output += `\n\n--- ⚠️ TABELA FALTANDO NO BANCO DE DADOS ---\nAcesse o SQL Editor do Supabase e rode:\n\ncreate table if not exists appointments (\n  id uuid default gen_random_uuid() primary key,\n  title text not null,\n  date timestamp with time zone not null,\n  description text,\n  user_id uuid references auth.users(id)\n);`;
     }
@@ -388,12 +392,12 @@ const App: React.FC = () => {
 
             // Logica de notificação
             if (!wasApproved && confirmedUser.approved && user.email) {
-                alert("✅ Usuário Aprovado e Salvo!\n\nDeseja avisá-lo por e-mail?");
-                
-                // Abre o cliente de email do sistema
-                const subject = "Acesso Aprovado - Excelencia Filmes";
-                const body = `Olá ${confirmedUser.name},\n\nSeu acesso ao sistema Excelencia Filmes foi aprovado!\n\nAcesse: ${window.location.origin}\n\nAtenciosamente,\nAdministração.`;
-                window.location.href = `mailto:${confirmedUser.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                // Confirmação explícita para evitar bloqueio de pop-ups
+                if(window.confirm("✅ Usuário Aprovado e Salvo!\n\nClique em OK para abrir seu e-mail e enviar a notificação ao usuário.")) {
+                    const subject = "Acesso Aprovado - Excelencia Filmes";
+                    const body = `Olá ${confirmedUser.name},\n\nSeu acesso ao sistema Excelencia Filmes foi aprovado!\n\nAcesse: ${window.location.origin}\n\nAtenciosamente,\nAdministração.`;
+                    window.location.href = `mailto:${confirmedUser.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                }
             }
         }
     } else {
@@ -432,7 +436,11 @@ const App: React.FC = () => {
                  const errorMsg = formatSupabaseError(profileError);
                  alert(`Usuário criado, mas erro no perfil:\n${errorMsg}`);
              } else {
-                alert("✅ Usuário criado com sucesso!");
+                if(window.confirm("✅ Usuário criado com sucesso!\n\nClique em OK para enviar os dados de acesso por e-mail.")) {
+                    const subject = "Seu Acesso - Excelencia Filmes";
+                    const body = `Olá ${user.name},\n\nSeu cadastro foi criado.\n\nLink: ${window.location.origin}\nLogin: ${user.email}\nSenha Provisória: ${password}\n\nAtenciosamente,\nAdministração.`;
+                    window.location.href = `mailto:${user.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                }
                 // Recarrega tudo para garantir que o novo usuário apareça na lista com ID correto
                 fetchData();
              }
@@ -521,7 +529,7 @@ const App: React.FC = () => {
             options: { 
                 data: { 
                     name,
-                    phone, // Salva o telefone no metadata
+                    phone: phone ? phone.replace(/\D/g, '') : null, // Limpa o telefone
                     role: 'Free',
                     approved: false
                 } 

@@ -40,7 +40,7 @@ const formatSupabaseError = (error: unknown): string => {
     }
     
     if (lowerCaseMessage.includes("could not find the 'approved' column") || lowerCaseMessage.includes("could not find the 'role' column")) {
-        output += `\n\n--- ⚠️ COLUNA FALTANDO NO BANCO DE DADOS ---\nAcesse o SQL Editor do Supabase e rode:\n\nALTER TABLE profiles ADD COLUMN approved BOOLEAN DEFAULT false;\nALTER TABLE profiles ADD COLUMN role TEXT DEFAULT 'Free';`;
+        output += `\n\n--- ⚠️ COLUNA FALTANDO NO BANCO DE DADOS ---\nAcesse o SQL Editor do Supabase e rode:\n\nALTER TABLE profiles ADD COLUMN IF NOT EXISTS approved BOOLEAN DEFAULT false;\nALTER TABLE profiles ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'Free';`;
     }
 
     return output;
@@ -107,11 +107,12 @@ const App: React.FC = () => {
       // Definir perfil do usuário atual
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
+          // Atualiza o usuário atual baseado nos dados do banco (para pegar o 'approved' atualizado)
           let current = usersData.find(u => u.id === session.user.id);
+          
           // Hardcode de segurança para o Daniel
           if (session.user.email === MASTER_EMAIL) {
               const adminUser = { ...current, id: session.user.id, email: session.user.email, role: 'Master', approved: true };
-              // Se não existir no banco, cria visualmente
               setCurrentUserProfile(adminUser as User);
           } else {
               setCurrentUserProfile(current || null);
@@ -315,42 +316,46 @@ const App: React.FC = () => {
         // Verifica o estado anterior do usuário para detectar se foi aprovado agora
         const previousUserState = users.find(u => u.id === user.id);
         const wasApproved = previousUserState?.approved || false;
-        const isNowApproved = user.approved || false;
+        const isNowApproved = user.approved === true;
 
         // Atualização de usuário existente
+        // FORÇA o envio do boolean corretamente
         const { error } = await supabase.from('profiles').update({
             name: user.name,
             cpf: user.cpf,
             role: user.role,
-            approved: user.approved
+            approved: isNowApproved // Força boolean
         }).eq('id', user.id);
         
         if (error) {
             const errorMsg = formatSupabaseError(error);
             alert(`Erro ao atualizar perfil:\n\n${errorMsg}`);
         } else {
+            // Atualização OTIMISTA: Atualiza o estado local imediatamente para refletir na UI
+            setUsers(prev => prev.map(u => u.id === user.id ? { ...u, ...user, approved: isNowApproved } : u));
+
             // Se o usuário não estava aprovado e agora está, envia o email e exibe mensagem
             if (!wasApproved && isNowApproved && user.email) {
-                // Envia email de validação (Magic Link / Reset de Senha)
-                // Isso garante que o usuário receba um link para entrar/definir senha e acessar
+                alert("✅ Usuário Aprovado!\n\nAgora, para que ele possa acessar, vamos enviar um e-mail de validação automática.");
+                
                 const { error: mailError } = await supabase.auth.resetPasswordForEmail(user.email, {
                     redirectTo: window.location.origin,
                 });
 
                 if (mailError) {
-                    alert(`✅ Usuário Aprovado no Sistema!\n\n⚠️ Porém, houve um erro ao enviar o e-mail automático: ${mailError.message}\n\nPor favor, avise o usuário manualmente.`);
+                    alert(`⚠️ Houve um erro ao enviar o e-mail automático: ${mailError.message}\n\nAvise o usuário manualmente.`);
                 } else {
-                    alert("✅ Usuário Validado e E-mail Enviado!\n\nO sistema enviou automaticamente um e-mail para o usuário contendo um link para validar o acesso e entrar no sistema.");
+                    alert("📧 E-mail Enviado!\n\nO usuário receberá um link para definir senha e acessar o sistema.");
                 }
             } else {
-                alert("Usuário atualizado com sucesso.");
+                // Apenas atualizou dados, sem mudar status de aprovação crítico
+                // alert("Usuário atualizado com sucesso."); // Opcional, pode ser removido se ficar muito verboso
             }
         }
     } else {
-        // Criação de novo usuário
+        // Criação de novo usuário (Convite pelo Master)
         if (!user.email || !password) return;
         
-        // Primeiro cria no Auth
         const { data: authData, error: authError } = await supabase.auth.signUp({
             email: user.email,
             password: password,
@@ -369,7 +374,6 @@ const App: React.FC = () => {
             return;
         }
 
-        // Se o trigger do Supabase falhar ou não existir, inserimos manualmente no profiles
         if (authData.user) {
              const { error: profileError } = await supabase.from('profiles').upsert({
                 id: authData.user.id,
@@ -382,12 +386,10 @@ const App: React.FC = () => {
              
              if (profileError) {
                  const errorMsg = formatSupabaseError(profileError);
-                 console.error("Erro ao criar perfil manual:", profileError);
-                 alert(`Usuário criado no Auth, mas houve erro ao salvar detalhes no perfil:\n${errorMsg}`);
+                 alert(`Usuário criado, mas erro no perfil:\n${errorMsg}`);
              } else {
-                // Se criou já aprovado (Master criando usuário), mostra a mensagem também
                 if (user.approved) {
-                    alert("✅ Usuário Criado e Validado!\n\nAs informações de acesso foram processadas.");
+                    alert("✅ Usuário Criado e Validado!");
                 } else {
                     alert("Usuário convidado com sucesso.");
                 }
@@ -405,8 +407,6 @@ const App: React.FC = () => {
       }
 
       if(window.confirm(`Tem certeza que deseja EXCLUIR o usuário ${userToDelete?.name}? Essa ação não pode ser desfeita.`)) {
-        // Nota: Deletar do 'profiles' não deleta do Auth automaticamente sem uma Edge Function no Supabase,
-        // mas remove da lista visual do sistema e bloqueia o acesso.
         const { error } = await supabase.from('profiles').delete().eq('id', userId);
         if(!error) {
             setUsers(prev => prev.filter(u => u.id !== userId));
@@ -423,18 +423,22 @@ const App: React.FC = () => {
   };
 
   const handleRegister = async ({ name, email, password }: any) => {
-    const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { 
-            data: { 
-                name,
-                role: 'Free', // Padrão Free
-                approved: false // Padrão Bloqueado
-            } 
-        }
-    });
-    if (error) throw error;
+    try {
+        const { error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: { 
+                data: { 
+                    name,
+                    role: 'Free', // Padrão Free
+                    approved: false // Padrão Bloqueado
+                } 
+            }
+        });
+        if (error) throw error;
+    } catch (error) {
+        throw error; // Repassa o erro para o componente de Login tratar
+    }
   };
 
   if (loading) {
@@ -467,7 +471,7 @@ const App: React.FC = () => {
                     Seu cadastro foi recebido, mas ainda está <strong>pendente de validação</strong> pela administração.
                 </p>
                 <p className="text-sm text-gray-400">
-                    Você receberá uma confirmação assim que seu acesso for liberado. Se precisar de urgência, entre em contato com o administrador.
+                    Você receberá um e-mail de confirmação assim que seu acesso for liberado.
                 </p>
                 <button 
                     onClick={() => supabase.auth.signOut()} 
@@ -476,7 +480,7 @@ const App: React.FC = () => {
                     Sair e tentar novamente mais tarde
                 </button>
             </div>
-            <footer className="mt-8 text-xs text-brand-text-secondary">Excelência Filmes &copy; 2024</footer>
+            <footer className="mt-8 text-xs text-brand-text-secondary">v1.0 - Sistema Online &copy; 2024</footer>
         </div>
       );
   }

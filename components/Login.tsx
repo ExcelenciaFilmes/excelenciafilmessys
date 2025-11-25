@@ -72,12 +72,15 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
       }
     } catch (err: any) {
       const errorMessage = err.message || 'Ocorreu um erro desconhecido.';
-      console.error("Authentication error:", err);
+      // console.error("Authentication error:", err); // Removido log excessivo para usuário
       
       setHasAuthError(true);
       setPassword(''); 
 
       const lowerCaseError = errorMessage.toLowerCase();
+      
+      // Verifica código de erro específico do Supabase para credenciais inválidas
+      const isInvalidGrant = err.code === 'invalid_grant' || lowerCaseError.includes('invalid login credentials');
 
       if (lowerCaseError.includes('failed to fetch')) {
         setError('Falha na conexão. Verifique sua internet e se a URL do banco de dados e as configurações de CORS estão corretas.');
@@ -85,14 +88,14 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
         setError('Este e-mail já está cadastrado. O formulário foi alterado para o modo de login. Por favor, digite sua senha para entrar.');
         setIsRegisterMode(false);
         setName('');
-      } else if (lowerCaseError.includes('invalid login credentials')) {
-        setError('E-mail ou senha inválidos. Por favor, verifique seus dados ou cadastre-se se for um novo usuário.');
+      } else if (isInvalidGrant) {
+        setError('Acesso negado. Verifique se seu e-mail e senha estão corretos. Se acabou de se cadastrar, verifique se recebeu um e-mail de confirmação.');
       } else if (lowerCaseError.includes('email not confirmed')) {
-        setError('Seu e-mail ainda não foi confirmado. Por favor, verifique sua caixa de entrada.');
+        setError('Seu e-mail ainda não foi confirmado. Por favor, verifique sua caixa de entrada e spam.');
       } else if (lowerCaseError.includes('database error saving new user')) {
         setError('Ocorreu um erro de configuração no banco de dados que impediu a criação do perfil de usuário. Por favor, contate o administrador do sistema.');
       } else {
-        setError(`Ocorreu um erro ao tentar autenticar: ${errorMessage}`);
+        setError(`Erro ao autenticar: ${errorMessage}`);
       }
     } finally {
       setLoading(false);

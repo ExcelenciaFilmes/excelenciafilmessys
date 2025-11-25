@@ -324,9 +324,19 @@ const App: React.FC = () => {
         if (error) {
             alert(`Erro: ${error.message}`);
         } else {
-            // Se o usuário não estava aprovado e agora está, exibe a mensagem especial
-            if (!wasApproved && isNowApproved) {
-                alert("✅ Usuário Validado com Sucesso!\n\nPor favor, confira seu e-mail. Uma mensagem de confirmação sobre a validação do acesso e as informações de cadastro foi gerada.");
+            // Se o usuário não estava aprovado e agora está, envia o email e exibe mensagem
+            if (!wasApproved && isNowApproved && user.email) {
+                // Envia email de validação (Magic Link / Reset de Senha)
+                // Isso garante que o usuário receba um link para entrar/definir senha e acessar
+                const { error: mailError } = await supabase.auth.resetPasswordForEmail(user.email, {
+                    redirectTo: window.location.origin,
+                });
+
+                if (mailError) {
+                    alert(`✅ Usuário Aprovado no Sistema!\n\n⚠️ Porém, houve um erro ao enviar o e-mail automático: ${mailError.message}\n\nPor favor, avise o usuário manualmente.`);
+                } else {
+                    alert("✅ Usuário Validado e E-mail Enviado!\n\nO sistema enviou automaticamente um e-mail para o usuário contendo um link para validar o acesso e entrar no sistema.");
+                }
             } else {
                 alert("Usuário atualizado com sucesso.");
             }
@@ -370,7 +380,7 @@ const App: React.FC = () => {
              } else {
                 // Se criou já aprovado (Master criando usuário), mostra a mensagem também
                 if (user.approved) {
-                    alert("✅ Usuário Criado e Validado!\n\nPor favor, confira o e-mail. As informações de validação de acesso foram processadas.");
+                    alert("✅ Usuário Criado e Validado!\n\nAs informações de acesso foram processadas.");
                 } else {
                     alert("Usuário convidado com sucesso.");
                 }

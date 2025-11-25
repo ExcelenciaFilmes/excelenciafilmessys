@@ -76,7 +76,11 @@ const UserForm: React.FC<{
                 <div className="flex items-center justify-between">
                     <div>
                         <p className="text-xs text-brand-text-secondary">Status atual: <span className={formData.approved ? "text-green-500 font-bold" : "text-yellow-500 font-bold"}>{formData.approved ? 'ATIVO' : 'PENDENTE'}</span></p>
-                        <p className="text-xs text-brand-text-secondary mt-1">Usuários pendentes não conseguem acessar o sistema.</p>
+                        <p className="text-xs text-brand-text-secondary mt-1 max-w-xs">
+                           {formData.approved 
+                             ? 'O usuário já possui acesso ao sistema.' 
+                             : 'Ao aprovar, um e-mail com um link de acesso será enviado automaticamente para o usuário.'}
+                        </p>
                     </div>
                     <button 
                         type="button"

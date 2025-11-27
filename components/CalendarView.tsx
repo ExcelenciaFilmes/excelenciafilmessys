@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
 import { Project, Client, Appointment } from '../types.ts';
-import { PlusIcon } from './icons';
+import { PlusIcon, GoogleIcon } from './icons';
 
 interface CalendarViewProps {
   projects: Project[];
@@ -12,6 +13,9 @@ interface CalendarViewProps {
 }
 
 const daysOfWeek = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+// Link específico fornecido pelo usuário
+const GOOGLE_CALENDAR_LINK = "https://calendar.google.com/calendar/u/0?cid=c3VwLmZpbi5hZG1AZ21haWwuY29t";
 
 export const CalendarView: React.FC<CalendarViewProps> = ({ projects, appointments, clients, onProjectClick, onAddAppointment, onEditAppointment }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -71,12 +75,23 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ projects, appointmen
             <button onClick={handleNextMonth} className="p-2 rounded-full hover:bg-brand-secondary text-brand-text-primary">&gt;</button>
         </div>
         
-        <button 
-            onClick={() => onAddAppointment()}
-            className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-brand-background rounded-md font-bold text-sm hover:opacity-90 shadow-md"
-        >
-            <PlusIcon className="w-4 h-4" /> Novo Compromisso
-        </button>
+        <div className="flex gap-2">
+            <button 
+                onClick={() => window.open(GOOGLE_CALENDAR_LINK, '_blank')}
+                className="flex items-center gap-2 px-3 py-2 bg-white text-gray-700 border border-gray-300 rounded-md font-bold text-sm hover:bg-gray-50 transition-colors"
+                title="Abrir a agenda sup.fin.adm@gmail.com"
+            >
+                <GoogleIcon className="w-4 h-4" />
+                <span className="hidden md:inline">Abrir Google Agenda</span>
+            </button>
+
+            <button 
+                onClick={() => onAddAppointment()}
+                className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-brand-background rounded-md font-bold text-sm hover:opacity-90 shadow-md"
+            >
+                <PlusIcon className="w-4 h-4" /> Novo Compromisso
+            </button>
+        </div>
       </div>
       
       <div className="grid grid-cols-7 gap-1 flex-grow overflow-y-auto">

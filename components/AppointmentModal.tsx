@@ -12,6 +12,9 @@ interface AppointmentModalProps {
   appointmentToEdit?: Appointment | null;
 }
 
+// E-mail da agenda alvo (decodificado do CID)
+const TARGET_CALENDAR_EMAIL = "sup.fin.adm@gmail.com";
+
 export const AppointmentModal: React.FC<AppointmentModalProps> = ({ isOpen, onClose, onSave, onDelete, initialDate, appointmentToEdit }) => {
   const [title, setTitle] = useState('');
   const [date, setDate] = useState('');
@@ -89,6 +92,10 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({ isOpen, onCl
       url.searchParams.append("text", title);
       url.searchParams.append("dates", `${formatTime(startTime)}/${formatTime(endTime)}`);
       url.searchParams.append("details", description);
+      
+      // Tenta forçar a adição neste calendário específico (funciona se o usuário tiver permissão de escrita nele)
+      url.searchParams.append("src", TARGET_CALENDAR_EMAIL);
+      url.searchParams.append("add", TARGET_CALENDAR_EMAIL); // Tenta adicionar como convidado também
       
       window.open(url.toString(), "_blank");
   }

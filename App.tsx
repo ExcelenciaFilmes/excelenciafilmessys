@@ -52,6 +52,18 @@ const formatSupabaseError = (error: unknown): string => {
         output += `\n\n--- ⚠️ TABELA FALTANDO NO BANCO DE DADOS ---\nAcesse o SQL Editor do Supabase e rode:\n\ncreate table if not exists appointments (\n  id uuid default gen_random_uuid() primary key,\n  title text not null,\n  date timestamp with time zone not null,\n  description text,\n  user_id uuid references auth.users(id)\n);`;
     }
 
+    if (lowerCaseMessage.includes('foreign key constraint')) {
+        output += `\n\n--- ⚠️ ERRO DE RELACIONAMENTO (FOREIGN KEY) ---\nO banco de dados está com uma regra de chave estrangeira incorreta. Rode este comando no SQL Editor do Supabase para corrigir:\n\nALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_id_fkey;\nALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_user_id_fkey;\nALTER TABLE profiles ADD CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE;`;
+    }
+    
+    if (lowerCaseMessage.includes('policy') && lowerCaseMessage.includes('already exists')) {
+        output += `\n\n--- ⚠️ ERRO DE DUPLICIDADE DE REGRA (RLS) ---\nA regra de segurança já existe. Use DROP POLICY antes de criar. Exemplo:\n\nDROP POLICY IF EXISTS "Enable all for authenticated" ON "public"."projects";\nCREATE POLICY "Enable all for authenticated" ON "public"."projects" AS PERMISSIVE FOR ALL TO authenticated USING (true) WITH CHECK (true);`;
+    }
+
+    if (lowerCaseMessage.includes('permission denied for table projects') || lowerCaseMessage.includes('permission denied for table clients')) {
+         output += `\n\n--- ⚠️ DADOS BLOQUEADOS PELO BANCO ---\nPara que os usuários vejam os projetos uns dos outros, rode este comando no SQL Editor:\n\nDROP POLICY IF EXISTS "Enable all for authenticated" ON "public"."projects";\nCREATE POLICY "Enable all for authenticated" ON "public"."projects" AS PERMISSIVE FOR ALL TO authenticated USING (true) WITH CHECK (true);\n-- Repita para clients, columns e appointments se necessário.`;
+    }
+
     return output;
   }
 
@@ -694,16 +706,8 @@ const App: React.FC = () => {
         )}
       </main>
       
-      <footer className="p-2 bg-brand-surface text-center text-xs text-brand-text-secondary border-t border-brand-secondary flex justify-between px-6">
+      <footer className="p-2 bg-brand-surface text-center text-xs text-brand-text-secondary border-t border-brand-secondary flex justify-center px-6">
         <span>v1.0 - Sistema Online &copy; 2024</span>
-        <a 
-            href="https://github.com/ExcelenciaFilmes/excelenciafilmessys.git" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="hover:text-brand-primary transition-colors flex items-center gap-1"
-        >
-            Repositório GitHub &rarr;
-        </a>
       </footer>
 
       {selectedProject && <CardModal project={selectedProject} clients={clients} users={users} onClose={() => setSelectedProject(null)} onUpdateProject={handleUpdateProject} />}

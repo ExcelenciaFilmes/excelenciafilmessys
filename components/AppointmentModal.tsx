@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { Appointment } from '../types.ts';
-import { TrashIcon } from './icons';
+import { TrashIcon, GoogleIcon } from './icons';
 
 interface AppointmentModalProps {
   isOpen: boolean;
@@ -72,6 +73,26 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({ isOpen, onCl
       }
   }
 
+  const handleAddToGoogleCalendar = () => {
+      if (!title || !date || !time) {
+          alert("Preencha os dados do compromisso primeiro.");
+          return;
+      }
+      
+      const startTime = new Date(`${date}T${time}:00`);
+      const endTime = new Date(startTime.getTime() + 60 * 60 * 1000); // Adiciona 1 hora padrão
+
+      const formatTime = (d: Date) => d.toISOString().replace(/-|:|\.\d\d\d/g, "");
+
+      const url = new URL("https://calendar.google.com/calendar/render");
+      url.searchParams.append("action", "TEMPLATE");
+      url.searchParams.append("text", title);
+      url.searchParams.append("dates", `${formatTime(startTime)}/${formatTime(endTime)}`);
+      url.searchParams.append("details", description);
+      
+      window.open(url.toString(), "_blank");
+  }
+
   if (!isOpen) return null;
 
   return (
@@ -130,6 +151,18 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({ isOpen, onCl
                 className="w-full p-2 bg-brand-secondary text-brand-text-primary rounded-md focus:ring-1 focus:ring-brand-primary outline-none resize-none"
               />
             </div>
+            
+            {title && date && time && (
+                <button 
+                    type="button" 
+                    onClick={handleAddToGoogleCalendar}
+                    className="w-full flex items-center justify-center gap-2 p-2 rounded-md bg-white text-gray-700 font-bold border border-gray-300 hover:bg-gray-50 transition-colors"
+                >
+                    <GoogleIcon className="w-5 h-5" />
+                    Adicionar ao Google Agenda
+                </button>
+            )}
+
           </div>
 
           <div className="p-6 border-t border-brand-secondary flex justify-between items-center">

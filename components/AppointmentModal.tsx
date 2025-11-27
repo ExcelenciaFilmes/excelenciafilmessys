@@ -12,14 +12,17 @@ interface AppointmentModalProps {
   appointmentToEdit?: Appointment | null;
 }
 
-// E-mail da agenda alvo (decodificado do CID)
-const TARGET_CALENDAR_EMAIL = "sup.fin.adm@gmail.com";
+// E-mail padrão sugerido
+const DEFAULT_TARGET_EMAIL = "alexandrematos@excelenciafilmes.com.br";
 
 export const AppointmentModal: React.FC<AppointmentModalProps> = ({ isOpen, onClose, onSave, onDelete, initialDate, appointmentToEdit }) => {
   const [title, setTitle] = useState('');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [description, setDescription] = useState('');
+  
+  // Novo estado para controlar quem recebe o convite
+  const [targetEmail, setTargetEmail] = useState(DEFAULT_TARGET_EMAIL);
 
   useEffect(() => {
     if (isOpen) {
@@ -93,9 +96,10 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({ isOpen, onCl
       url.searchParams.append("dates", `${formatTime(startTime)}/${formatTime(endTime)}`);
       url.searchParams.append("details", description);
       
-      // Tenta forçar a adição neste calendário específico (funciona se o usuário tiver permissão de escrita nele)
-      url.searchParams.append("src", TARGET_CALENDAR_EMAIL);
-      url.searchParams.append("add", TARGET_CALENDAR_EMAIL); // Tenta adicionar como convidado também
+      // Adiciona o e-mail digitado como convidado
+      if (targetEmail) {
+          url.searchParams.append("add", targetEmail);
+      }
       
       window.open(url.toString(), "_blank");
   }
@@ -104,7 +108,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({ isOpen, onCl
 
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div className="bg-brand-surface w-full max-w-md rounded-lg shadow-xl flex flex-col">
+      <div className="bg-brand-surface w-full max-w-md rounded-lg shadow-xl flex flex-col max-h-[90vh] overflow-y-auto">
         <form onSubmit={handleSubmit}>
           <div className="p-6 border-b border-brand-secondary flex justify-between items-center">
             <h2 className="text-xl font-bold text-brand-text-primary">
@@ -154,21 +158,44 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({ isOpen, onCl
               <textarea 
                 value={description} 
                 onChange={e => setDescription(e.target.value)} 
-                rows={3} 
+                rows={2} 
                 className="w-full p-2 bg-brand-secondary text-brand-text-primary rounded-md focus:ring-1 focus:ring-brand-primary outline-none resize-none"
               />
             </div>
-            
-            {title && date && time && (
-                <button 
-                    type="button" 
-                    onClick={handleAddToGoogleCalendar}
-                    className="w-full flex items-center justify-center gap-2 p-2 rounded-md bg-white text-gray-700 font-bold border border-gray-300 hover:bg-gray-50 transition-colors"
-                >
-                    <GoogleIcon className="w-5 h-5" />
-                    Adicionar ao Google Agenda
-                </button>
-            )}
+
+            {/* Seção de Integração Google */}
+            <div className="bg-white/5 p-3 rounded-md border border-brand-secondary space-y-3">
+                <div className="flex items-center gap-2 mb-1">
+                    <GoogleIcon className="w-4 h-4" />
+                    <span className="text-sm font-bold text-brand-text-primary">Sincronizar Google Agenda</span>
+                </div>
+                
+                <div>
+                    <label className="block text-xs font-medium text-brand-text-secondary mb-1">
+                        Salvar na agenda de (E-mail):
+                    </label>
+                    <input 
+                        type="email" 
+                        value={targetEmail} 
+                        onChange={e => setTargetEmail(e.target.value)} 
+                        placeholder="email@exemplo.com"
+                        className="w-full p-1.5 text-sm bg-brand-background text-brand-text-primary rounded border border-brand-secondary focus:border-brand-primary outline-none"
+                    />
+                    <p className="text-[10px] text-brand-text-secondary mt-1">
+                        * O Google enviará um convite para este e-mail.
+                    </p>
+                </div>
+
+                {title && date && time && (
+                    <button 
+                        type="button" 
+                        onClick={handleAddToGoogleCalendar}
+                        className="w-full flex items-center justify-center gap-2 p-2 rounded-md bg-white text-gray-700 font-bold border border-gray-300 hover:bg-gray-50 transition-colors text-sm"
+                    >
+                        Adicionar ao Google Agenda
+                    </button>
+                )}
+            </div>
 
           </div>
 
@@ -187,7 +214,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({ isOpen, onCl
              </div>
              <div className="flex space-x-2">
                 <button type="button" onClick={onClose} className="px-4 py-2 rounded-md bg-brand-secondary hover:bg-brand-secondary/80 text-brand-text-primary">Cancelar</button>
-                <button type="submit" className="px-4 py-2 rounded-md bg-brand-primary text-brand-background font-semibold hover:bg-opacity-90">Salvar</button>
+                <button type="submit" className="px-4 py-2 rounded-md bg-brand-primary text-brand-background font-semibold hover:bg-opacity-90">Salvar no Sistema</button>
             </div>
           </div>
         </form>

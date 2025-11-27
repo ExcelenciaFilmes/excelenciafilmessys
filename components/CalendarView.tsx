@@ -14,8 +14,8 @@ interface CalendarViewProps {
 
 const daysOfWeek = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-// Link específico fornecido pelo usuário
-const GOOGLE_CALENDAR_LINK = "https://calendar.google.com/calendar/u/0?cid=c3VwLmZpbi5hZG1AZ21haWwuY29t";
+// Link específico para alexandrematos@excelenciafilmes.com.br (CID Base64 Encoded)
+const GOOGLE_CALENDAR_LINK = "https://calendar.google.com/calendar/u/0?cid=YWxleGFuZHJlbWF0b3NAZXhjZWxlbmNpYWZpbG1lcy5jb20uYnI";
 
 export const CalendarView: React.FC<CalendarViewProps> = ({ projects, appointments, clients, onProjectClick, onAddAppointment, onEditAppointment }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -79,7 +79,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ projects, appointmen
             <button 
                 onClick={() => window.open(GOOGLE_CALENDAR_LINK, '_blank')}
                 className="flex items-center gap-2 px-3 py-2 bg-white text-gray-700 border border-gray-300 rounded-md font-bold text-sm hover:bg-gray-50 transition-colors"
-                title="Abrir a agenda sup.fin.adm@gmail.com"
+                title="Abrir a agenda alexandrematos@excelenciafilmes.com.br"
             >
                 <GoogleIcon className="w-4 h-4" />
                 <span className="hidden md:inline">Abrir Google Agenda</span>
